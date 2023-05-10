@@ -2,29 +2,41 @@
 
 import sys
 import os
-import random
 
-class TransitionParams:
-    def __init__(self, params):
-        self.params = params
-        splited = self.params.split(" ")
-        self.x = splited[0]
-        self.y = splited[1]
-        self.w = splited[2]
-        self.h = splited[3]
+class Position:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
 
-    def get_zoom_percent(self, root_transition_params):
-        return int(self.w) / int(root_transition_params.w)
+    def __repr__(self):
+        return f"x[{self.x}], y[{self.y}]"
 
-    def get_params(self, x, y, w, h):
-        return " ".join([x, y, w, h])
+class Size:
+    def __init__(self, w, h):
+        self.w = w
+        self.h = h
 
-    def zoom_transition(self, zoom, root_transition_params):
-        current_zoom = self.get_zoom_percent(root_transition_params)
-        next_zoom = current_zoom + zoom
-        w = int(self.w) / int(current_zoom) * int(next_zoom)
-        h = int(self.h) / int(current_zoom) * int(next_zoom)
-        return self.get_params(self.x, self.y, str(w), str(h))
+    def __repr__(self):
+        return f"w[{self.w}], h[{self.h}]"
+
+class Keyframe:
+    def __init__(self, position, size):
+        self.position = position
+        self.size = size
+
+    @staticmethod
+    def get_keyframe_from_transition_string(s):
+        _, s = s.split("=")
+        splited = s.split(" ")
+        return Position(int(splited[0]), int(splited[1])), Size(int(splited[2]), int(splited[3]))
+
+    @staticmethod
+    def get_transition_string_from_position_size(position, size):
+        return " ".join([str(position.x), str(position.y), str(size.w), str(size.h)])
+
+    @staticmethod
+    def get_transition_string_from_keyframe(keyframe):
+        return " ".join([str(keyframe.position.x), str(keyframe.position.y), str(keyframe.size.w), str(keyframe.size.h)])
 
 class KdenliveFile:
     LSTRIP = '    <property name="transition.rect">'
@@ -32,78 +44,70 @@ class KdenliveFile:
 
     def __init__(self, path):
         self.path = path
-        self.root_transition_params = TransitionParams(self.get_transition_positions()[0])
 
     @staticmethod
-    def get_full_path(path):
+    def _get_full_path(path):
         return os.path.realpath(os.path.expanduser(path))
 
     @staticmethod
-    def write_lines_to_file(lines, filename, newline_at_end=True):
-        filename = KdenliveFile.get_full_path(filename)
+    def _write_lines_to_file(lines, filename, newline_at_end=True):
+        filename = KdenliveFile._get_full_path(filename)
         sufix = ("", "\n")[newline_at_end]
         with open(filename, 'w') as f:
             f.write("\n".join(lines) + sufix)
 
     @staticmethod
-    def read_lines_from_file(filename):
-        filename = KdenliveFile.get_full_path(filename)
+    def _read_lines_from_file(filename):
+        filename = KdenliveFile._get_full_path(filename)
         with open(filename, 'r') as f:
             lines = f.read().splitlines()
         return lines
 
-    def get_new_name(self):
+    def _get_new_name(self):
         splited = self.path.split(".")
         return ".".join(splited[:-1]) + "_edited" + "." + splited[-1]
 
-    def get_lines(self):
-        return KdenliveFile.read_lines_from_file(self.path)
+    def _get_lines(self):
+        return KdenliveFile._read_lines_from_file(self.path)
 
-    def set_lines(self, lines):
-        KdenliveFile.write_lines_to_file(lines, f"{self.get_new_name()}")
+    def _set_lines(self, lines):
+        KdenliveFile._write_lines_to_file(lines, f"{self._get_new_name()}")
 
     def get_transition_rect_line(self):
-        lines = self.get_lines()
+        lines = self._get_lines()
         for l in lines:
             if "transition.rect" in l:
                 return l
         return ""
 
-    def get_transitions(self):
-        transition_line = self.get_transition_rect_line()
-        transition_line = transition_line.lstrip(self.LSTRIP)
-        transition_line = transition_line.rstrip(self.RSTRIP)
-        return transition_line.split(";")
+    def get_keyframes(self):
+        keyframes = []
+        transition_rect_line = self.get_transition_rect_line()
+        transition_rect_line = transition_rect_line.lstrip(self.LSTRIP)
+        transition_rect_line = transition_rect_line.rstrip(self.RSTRIP)
+        for transition_string in transition_rect_line.split(";"):
+            keyframes.append(Keyframe.get_keyframe_from_transition_string(transition_string))
+        return keyframes
 
-    def get_transition_positions(self):
-        transitions = self.get_transitions()
-        transition_positions = []
-        for t in transitions:
-            transition_positions.append(t.split("=")[1])
-        return transition_positions
+    def generate_transition_string(self, timestamp, keyframe):
+        return f"{timestamp}={Keyframe.get_transition_string_from_keyframe(keyframe)}"
 
-    def generate_transition_position(self, timestamp, position):
-        return f"{timestamp}={position}"
-
-    def generate_transition_rect_line(self, transition_positions):
-        return self.LSTRIP + ";".join(transition_positions) + self.RSTRIP
+    def generate_transition_rect_line(self, transition_string):
+        return self.LSTRIP + ";".join(transition_string) + self.RSTRIP
 
     def replace_transition_rect_line(self, transition_rect_line):
-        lines = self.get_lines()
+        lines = self._get_lines()
         index = -1
         for e,l in enumerate(lines):
             if self.LSTRIP in l:
                 index = e
         lines[index] = transition_rect_line
-        self.set_lines(lines)
+        self._set_lines(lines)
 
     def set_transition_positions(self, transition_positions):
         transition_rect_line = self.generate_transition_rect_line(transition_positions)
         self.replace_transition_rect_line(transition_rect_line)
 
-    def zoom_transition(self, zoom, transition):
-        tp = TransitionParams(transition)
-        return tp.zoom_transition(zoom, self.root_transition_params)
 
 if __name__ == "__main__":
     kf = KdenliveFile(sys.argv[1])

@@ -4,6 +4,7 @@ import sys
 import random
 from transcribe_file import TranscribeFile
 from kdenlive_file import KdenliveFile
+from transition_manipulator import TransitionManipulator, get_position_size_from_params
 
 position_overrides = {
     "W": 0,
@@ -20,6 +21,7 @@ position_overrides = {
 if __name__ == "__main__":
     tf = TranscribeFile(sys.argv[1])
     kf = KdenliveFile(sys.argv[2])
+
     timestamps = tf.get_timestamps()
     positions = kf.get_transition_positions()
     transition_positions = []
@@ -29,7 +31,7 @@ if __name__ == "__main__":
             position = None
         if random.choice([True, False]):
             if position is not None:
-                position = kf.zoom_transition(1.5, position)
+                position = sition(1.5, position)
         if timestamp.get_label() in position_overrides.keys():
             position = positions[position_overrides[timestamp.get_label()]]
 
