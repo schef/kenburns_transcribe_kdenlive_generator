@@ -41,26 +41,21 @@ class TranscribeFile:
         inside = False
         for l in lines:
             l = l.strip()
-            print("DEBUG", l)
             if not inside:
                 if l == self.START_LINE:
-                    print("start_line")
                     inside = True
                     continue
             if inside:
                 if l == self.END_LINE:
-                    print("end_line")
                     inside = False
                     continue
                 skip_line_found = False
                 for skip_line in self.SKIP_LINES:
                     if skip_line in l:
-                        print("skip_line")
                         skip_line_found = True
                         continue
                 if skip_line_found:
                     continue
-                print("adding")
                 marks.append(Mark(l))
         return marks
 

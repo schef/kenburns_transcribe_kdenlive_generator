@@ -14,8 +14,11 @@ class Timestamp:
         return timedelta(hours=t.hour, minutes=t.minute, seconds=t.second, microseconds=t.microsecond)
 
     def get_timestamp_string(self):
-        return str(self.timedelta)
-
+        t = str(self.timedelta)
+        if "." in t:
+            return t[:-3]
+        else:
+            return t + ".000"
 
 class Position:
     def __init__(self, x, y):
@@ -60,8 +63,10 @@ class Keyframe:
 
 
 class KdenliveFile:
-    LSTRIP = '    <property name="transition.rect">'
-    RSTRIP = '</property>'
+    TRANSITION_RECT_LSTRIP = '    <property name="transition.rect">'
+    TRANSITION_RECT_RSTRIP = '</property>'
+    PRODUCER_RESOURCE_LSTRIP = '    <property name="producer.resource">'
+    PRODUCER_RESOURCE_RSTRIP = '</property>'
 
     def __init__(self, path):
         self.path = path
@@ -101,31 +106,35 @@ class KdenliveFile:
                 return l
         return ""
 
-    def _set_transition_rect_line(self, transition_rect_line):
+    def _set_project_lines(self, transition_rect_line):
         lines = self._get_lines()
-        index = -1
+        transition_rect_line_index = -1
+        producer_resource_line_index = -1
         for e,l in enumerate(lines):
-            if self.LSTRIP in l:
-                index = e
-        lines[index] = transition_rect_line
+            if self.TRANSITION_RECT_LSTRIP in l:
+                transition_rect_line_index = e
+            if self.PRODUCER_RESOURCE_LSTRIP in l:
+                producer_resource_line_index = e
+        lines[transition_rect_line_index] = transition_rect_line
+        lines[producer_resource_line_index] = self.PRODUCER_RESOURCE_LSTRIP + self.PRODUCER_RESOURCE_RSTRIP
         self._set_lines(lines)
 
 
     def _generate_transition_rect_line_from_keyframes(self, keyframes):
-        return self.LSTRIP + ";".join([Keyframe.get_keyframe_string_from_keyframe(k) for k in keyframes]) + self.RSTRIP
+        return self.TRANSITION_RECT_LSTRIP + ";".join([Keyframe.get_keyframe_string_from_keyframe(k) for k in keyframes]) + self.TRANSITION_RECT_RSTRIP
 
     def get_keyframes(self):
         keyframes = []
         transition_rect_line = self._get_transition_rect_line()
-        transition_rect_line = transition_rect_line.lstrip(self.LSTRIP)
-        transition_rect_line = transition_rect_line.rstrip(self.RSTRIP)
+        transition_rect_line = transition_rect_line.lstrip(self.TRANSITION_RECT_LSTRIP)
+        transition_rect_line = transition_rect_line.rstrip(self.TRANSITION_RECT_RSTRIP)
         for keyframe_string in transition_rect_line.split(";"):
             keyframes.append(Keyframe.get_keyframe_from_keyframe_string(keyframe_string))
         return keyframes
 
     def set_keyframes(self, keyframes):
         transition_rect_line = self._generate_transition_rect_line_from_keyframes(keyframes)
-        self._set_transition_rect_line(transition_rect_line)
+        self._set_project_lines(transition_rect_line)
 
 
 if __name__ == "__main__":
