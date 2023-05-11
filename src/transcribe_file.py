@@ -4,32 +4,30 @@ from re import split
 import sys
 from datetime import datetime, timedelta
 
-class TranscribeTimestamp:
+class Mark:
     #M,-1,1,1,0,0:00:00.933250
     def __init__(self, line):
-        self.line = line
-        splited = self.line.strip().split(",")
+        splited = line.strip().split(",")
         self.mark_type = splited[0]
         self.label = splited[3]
-        self.timestamp = splited[5]
+        self.timedelta = Mark.get_timedelta_from_timestamp_string(splited[5])
 
     def get_label(self):
         return self.label
 
-    def get_timestamp(self):
-        return self.timestamp
+    def __repr__(self):
+        return f"[{self.label}] {self.timedelta}"
 
-    def get_timedelta(self):
-        t = datetime.strptime(self.timestamp, '%H:%M:%S.%f')
+    @staticmethod
+    def get_timedelta_from_timestamp_string(timestamp_string):
+        t = datetime.strptime(timestamp_string, '%H:%M:%S.%f')
         return timedelta(hours=t.hour, minutes=t.minute, seconds=t.second, microseconds=t.microsecond)
 
-    def get_kdenlive_timestamp(self):
-        return str(self.get_timedelta())[:-3]
-
-    def __repr__(self):
-        return f"[{self.label}] {self.get_timedelta()}"
-
 class TranscribeFile:
+    START_LINE = "SectionStart,Markers"
+    SKIP_LINES = ["Howmany"]
+    END_LINE = "SectionEnd,Markers"
+
     def __init__(self, path):
         self.path = path
 
@@ -37,15 +35,37 @@ class TranscribeFile:
         with open(self.path, "r") as file:
             return file.readlines()
 
-    def get_timestamps(self):
-        timestamps = []
+    def get_marks(self):
+        marks = []
         lines = self.get_file_lines()
+        inside = False
         for l in lines:
-            if len(l) >= 2 and l[0] == "M" and l[1] == ",":
-                timestamps.append(TranscribeTimestamp(l))
-        return timestamps
+            l = l.strip()
+            print("DEBUG", l)
+            if not inside:
+                if l == self.START_LINE:
+                    print("start_line")
+                    inside = True
+                    continue
+            if inside:
+                if l == self.END_LINE:
+                    print("end_line")
+                    inside = False
+                    continue
+                skip_line_found = False
+                for skip_line in self.SKIP_LINES:
+                    if skip_line in l:
+                        print("skip_line")
+                        skip_line_found = True
+                        continue
+                if skip_line_found:
+                    continue
+                print("adding")
+                marks.append(Mark(l))
+        return marks
 
 if __name__ == "__main__":
     tf = TranscribeFile(sys.argv[1])
-    timestamps = tf.get_timestamps()
-    timestamp = timestamps[0]
+    marks = tf.get_marks()
+    print(len(marks))
+    mark = marks[0]
