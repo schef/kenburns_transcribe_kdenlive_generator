@@ -3,7 +3,8 @@
 import sys
 import random
 from transcribe_file import TranscribeFile
-from kdenlive_file import KdenliveFile, Keyframe
+from kdenlive_file import KdenliveFile
+from keyframe_manipulator import *
 
 position_overrides = {
     "W": 0,
