@@ -12,9 +12,6 @@ class Mark:
         self.label = splited[3]
         self.timedelta = Mark.get_timedelta_from_timestamp_string(splited[5])
 
-    def get_label(self):
-        return self.label
-
     def __repr__(self):
         return f"[{self.label}] {self.timedelta}"
 
