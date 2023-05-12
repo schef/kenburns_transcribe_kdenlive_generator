@@ -19,6 +19,11 @@ position_overrides = {
     "RC": 8,
 }
 
+def get_next_random_unique_keyframe(last_keyframe, keyframes_positions):
+    next_keyframe = random.choice(keyframes_positions)
+    while next_keyframe == last_keyframe:
+        next_keyframe = random.choice(keyframes_positions)
+
 if __name__ == "__main__":
     tf = TranscribeFile(sys.argv[1])
     kf = KdenliveFile(sys.argv[2])
@@ -28,16 +33,17 @@ if __name__ == "__main__":
     km = KeyframeManipulator(keyframes_positions[0].size)
     last_keyframe = None
     for mark in marks:
-        next_keyframe = random.choice(keyframes_positions)
-        while next_keyframe == last_keyframe:
-            next_keyframe = random.choice(keyframes_positions)
-        last_keyframe = next_keyframe
 
         if len(keyframes) % 2 == 1:
-            keyframe = deepcopy(keyframes[-1])
+            next_keyframe = last_keyframe
+            keyframe = deepcopy(next_keyframe)
             km.change_size(keyframe, 0.1)
         else: 
+            next_keyframe = get_next_random_unique_keyframe(last_keyframe, keyframes_positions)
             keyframe = deepcopy(next_keyframe)
+
+        last_keyframe = next_keyframe
+
         keyframe.timestamp.timedelta = mark.timedelta
         keyframes.append(keyframe)
     kf.set_keyframes(keyframes)
